@@ -1,5 +1,12 @@
 package br.com.casadocodigo.loja.conf;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.guava.GuavaCacheManager;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -8,11 +15,18 @@ import org.springframework.format.datetime.DateFormatter;
 import org.springframework.format.datetime.DateFormatterRegistrar;
 import org.springframework.format.support.DefaultFormattingConversionService;
 import org.springframework.format.support.FormattingConversionService;
+import org.springframework.web.accept.ContentNegotiationManager;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartResolver;
 import org.springframework.web.multipart.support.StandardServletMultipartResolver;
+import org.springframework.web.servlet.ViewResolver;
+import org.springframework.web.servlet.config.annotation.DefaultServletHandlerConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
+import org.springframework.web.servlet.view.ContentNegotiatingViewResolver;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
+
+import com.google.common.cache.CacheBuilder;
 
 import br.com.casadocodigo.loja.controllers.HomeController;
 import br.com.casadocodigo.loja.daos.ProdutoDAO;
@@ -22,7 +36,8 @@ import br.com.casadocodigo.loja.model.CarrinhoCompras;
 //habilita o uso do spring fala a classe inicial
 @EnableWebMvc
 @ComponentScan(basePackageClasses={HomeController.class,ProdutoDAO.class,FileSaver.class,CarrinhoCompras.class})
-public class AppWebConfiguration {
+@EnableCaching
+public class AppWebConfiguration extends WebMvcConfigurerAdapter {
 	
 	//configura onde estao os arquivos 
 	//bean sao as classes gerenciadas pelo spring
@@ -68,5 +83,32 @@ public class AppWebConfiguration {
 		return new RestTemplate();
 	}
 	
-
+	@Bean
+	public CacheManager cacheManager(){
+		CacheBuilder<Object, Object> builder = CacheBuilder.newBuilder()
+		.maximumSize(100)
+		.expireAfterAccess(5, TimeUnit.MINUTES);
+		GuavaCacheManager manager = new GuavaCacheManager();
+		manager.setCacheBuilder(builder);
+		return manager;
+		
+	}
+	
+	@Bean
+	public ViewResolver contentNegotiationViewResolver(ContentNegotiationManager manager){
+		
+		List<ViewResolver> viewResolvers = new ArrayList<>();
+		viewResolvers.add(internalResourceViewResolver());
+		viewResolvers.add(new JsonViewResolver());
+		ContentNegotiatingViewResolver resolver = new ContentNegotiatingViewResolver();
+		resolver.setViewResolvers(viewResolvers);
+		resolver.setContentNegotiationManager(manager);
+		return resolver;
+	}
+	
+	@Override	
+	public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer){
+		configurer.enable();
+	}
+	
 }
